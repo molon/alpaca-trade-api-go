@@ -1384,6 +1384,7 @@ func assertDecimalPtr(t *testing.T, expected string, actual *decimal.Decimal) {
 }
 
 func TestGetUSTreasuries(t *testing.T) {
+	ctx := context.Background()
 	c := DefaultClient
 
 	c.do = func(_ *Client, req *http.Request) (*http.Response, error) {
@@ -1434,7 +1435,7 @@ func TestGetUSTreasuries(t *testing.T) {
 		}, nil
 	}
 
-	got, err := c.GetUSTreasuries(GetUSTreasuriesRequest{
+	got, err := c.GetUSTreasuries(ctx, GetUSTreasuriesRequest{
 		Subtype:    TreasurySubtypeBill,
 		BondStatus: BondStatusOutstanding,
 		ISINs:      []string{"US912797KJ59", "US912797KJ60"},
@@ -1479,7 +1480,7 @@ func TestGetUSTreasuries(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(`{"us_treasuries":[]}`)),
 		}, nil
 	}
-	got, err = c.GetUSTreasuries(GetUSTreasuriesRequest{})
+	got, err = c.GetUSTreasuries(ctx, GetUSTreasuriesRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, got)
 
@@ -1487,11 +1488,12 @@ func TestGetUSTreasuries(t *testing.T) {
 	c.do = func(_ *Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{}, errors.New("fail")
 	}
-	_, err = c.GetUSTreasuries(GetUSTreasuriesRequest{})
+	_, err = c.GetUSTreasuries(ctx, GetUSTreasuriesRequest{})
 	require.Error(t, err)
 }
 
 func TestGetUSCorporates(t *testing.T) {
+	ctx := context.Background()
 	c := DefaultClient
 
 	c.do = func(_ *Client, req *http.Request) (*http.Response, error) {
@@ -1565,7 +1567,7 @@ func TestGetUSCorporates(t *testing.T) {
 		}, nil
 	}
 
-	got, err := c.GetUSCorporates(GetUSCorporatesRequest{
+	got, err := c.GetUSCorporates(ctx, GetUSCorporatesRequest{
 		BondStatus: BondStatusOutstanding,
 		Tickers:    []string{"BAC", "MSFT"},
 	})
@@ -1641,7 +1643,7 @@ func TestGetUSCorporates(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(`{"us_corporates":[]}`)),
 		}, nil
 	}
-	got, err = c.GetUSCorporates(GetUSCorporatesRequest{
+	got, err = c.GetUSCorporates(ctx, GetUSCorporatesRequest{
 		CUSIPs: []string{"06051GJH9"},
 		ISINs:  []string{"US06051GJH92"},
 	})
@@ -1652,7 +1654,7 @@ func TestGetUSCorporates(t *testing.T) {
 	c.do = func(_ *Client, _ *http.Request) (*http.Response, error) {
 		return &http.Response{}, errors.New("fail")
 	}
-	_, err = c.GetUSCorporates(GetUSCorporatesRequest{})
+	_, err = c.GetUSCorporates(ctx, GetUSCorporatesRequest{})
 	require.Error(t, err)
 }
 

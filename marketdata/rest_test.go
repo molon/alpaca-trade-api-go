@@ -523,6 +523,7 @@ func TestGetBars_Asof(t *testing.T) {
 }
 
 func TestGetBars_Adjustment(t *testing.T) {
+	ctx := context.Background()
 	c := DefaultClient
 	c.do = func(_ *Client, req *http.Request) (*http.Response, error) {
 		assert.Equal(t, "dividend,spin-off", req.URL.Query().Get("adjustment"))
@@ -556,7 +557,7 @@ func TestGetBars_Adjustment(t *testing.T) {
 }`)),
 		}, nil
 	}
-	got, err := c.GetBars("GE", GetBarsRequest{
+	got, err := c.GetBars(ctx, "GE", GetBarsRequest{
 		TimeFrame:  OneDay,
 		Start:      time.Date(2024, 4, 1, 0, 0, 0, 0, time.UTC),
 		TotalLimit: 2,
@@ -1676,6 +1677,7 @@ func TestGetLatestCryptoPerpPricing(t *testing.T) {
 }
 
 func TestGetFixedIncomeLatestPrice(t *testing.T) {
+	ctx := context.Background()
 	c := DefaultClient
 
 	// successful
@@ -1687,7 +1689,7 @@ func TestGetFixedIncomeLatestPrice(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(resp)),
 		}, nil
 	}
-	got, err := c.GetFixedIncomeLatestPrice("US912797KJ59")
+	got, err := c.GetFixedIncomeLatestPrice(ctx, "US912797KJ59")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, FixedIncomePrice{
@@ -1705,18 +1707,19 @@ func TestGetFixedIncomeLatestPrice(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(`{"prices":{}}`)),
 		}, nil
 	}
-	got, err = c.GetFixedIncomeLatestPrice("US912797KJ59")
+	got, err = c.GetFixedIncomeLatestPrice(ctx, "US912797KJ59")
 	require.NoError(t, err)
 	assert.Nil(t, got)
 
 	// api failure
 	c.do = mockErrResp()
-	got, err = c.GetFixedIncomeLatestPrice("US912797KJ59")
+	got, err = c.GetFixedIncomeLatestPrice(ctx, "US912797KJ59")
 	require.Error(t, err)
 	assert.Nil(t, got)
 }
 
 func TestGetFixedIncomeLatestPrices(t *testing.T) {
+	ctx := context.Background()
 	c := DefaultClient
 
 	// successful
@@ -1728,7 +1731,7 @@ func TestGetFixedIncomeLatestPrices(t *testing.T) {
 			Body: io.NopCloser(strings.NewReader(resp)),
 		}, nil
 	}
-	got, err := c.GetFixedIncomeLatestPrices([]string{"US912797KJ59", "US91282CJL54"})
+	got, err := c.GetFixedIncomeLatestPrices(ctx, []string{"US912797KJ59", "US91282CJL54"})
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, FixedIncomePrice{
@@ -1742,7 +1745,7 @@ func TestGetFixedIncomeLatestPrices(t *testing.T) {
 
 	// api failure
 	c.do = mockErrResp()
-	got, err = c.GetFixedIncomeLatestPrices([]string{"US912797KJ59", "US91282CJL54"})
+	got, err = c.GetFixedIncomeLatestPrices(ctx, []string{"US912797KJ59", "US91282CJL54"})
 	require.Error(t, err)
 	assert.Nil(t, got)
 }

@@ -1652,8 +1652,8 @@ func (c *Client) GetCorporateActions(
 const fixedIncomePrefix = "v1beta1/fixed_income"
 
 // GetFixedIncomeLatestPrice returns the latest price for a given fixed income security identified by ISIN
-func (c *Client) GetFixedIncomeLatestPrice(isin string) (*FixedIncomePrice, error) {
-	resp, err := c.GetFixedIncomeLatestPrices([]string{isin})
+func (c *Client) GetFixedIncomeLatestPrice(ctx context.Context, isin string) (*FixedIncomePrice, error) {
+	resp, err := c.GetFixedIncomeLatestPrices(ctx, []string{isin})
 	if err != nil {
 		return nil, err
 	}
@@ -1665,7 +1665,7 @@ func (c *Client) GetFixedIncomeLatestPrice(isin string) (*FixedIncomePrice, erro
 }
 
 // GetFixedIncomeLatestPrices returns the latest prices for the given fixed income securities identified by ISINs
-func (c *Client) GetFixedIncomeLatestPrices(isins []string) (map[string]FixedIncomePrice, error) {
+func (c *Client) GetFixedIncomeLatestPrices(ctx context.Context, isins []string) (map[string]FixedIncomePrice, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/%s/latest/prices", c.opts.BaseURL, fixedIncomePrefix))
 	if err != nil {
 		return nil, err
@@ -1676,7 +1676,7 @@ func (c *Client) GetFixedIncomeLatestPrices(isins []string) (map[string]FixedInc
 	}
 	u.RawQuery = q.Encode()
 
-	resp, err := c.get(u)
+	resp, err := c.get(ctx, u)
 	if err != nil {
 		return nil, err
 	}
@@ -1963,13 +1963,13 @@ func GetCorporateActions(
 }
 
 // GetFixedIncomeLatestPrice returns the latest price for a given fixed income security identified by ISIN
-func GetFixedIncomeLatestPrice(isin string) (*FixedIncomePrice, error) {
-	return DefaultClient.GetFixedIncomeLatestPrice(isin)
+func GetFixedIncomeLatestPrice(ctx context.Context, isin string) (*FixedIncomePrice, error) {
+	return DefaultClient.GetFixedIncomeLatestPrice(ctx, isin)
 }
 
 // GetFixedIncomeLatestPrices returns the latest prices for the given fixed income securities identified by ISINs
-func GetFixedIncomeLatestPrices(isins []string) (map[string]FixedIncomePrice, error) {
-	return DefaultClient.GetFixedIncomeLatestPrices(isins)
+func GetFixedIncomeLatestPrices(ctx context.Context, isins []string) (map[string]FixedIncomePrice, error) {
+	return DefaultClient.GetFixedIncomeLatestPrices(ctx, isins)
 }
 
 func (c *Client) get(

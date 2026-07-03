@@ -1286,14 +1286,16 @@ func RemoveSymbolFromWatchlist(ctx context.Context, watchlistID string, req Remo
 	return DefaultClient.RemoveSymbolFromWatchlist(ctx, watchlistID, req)
 }
 
-// GetUSTreasuries returns the available US Treasury securities.
-func GetUSTreasuries(req GetUSTreasuriesRequest) ([]USTreasury, error) {
-	return DefaultClient.GetUSTreasuries(req)
+// GetUSTreasuries returns the available US Treasury securities
+// with the default Alpaca client.
+func GetUSTreasuries(ctx context.Context, req GetUSTreasuriesRequest) ([]USTreasury, error) {
+	return DefaultClient.GetUSTreasuries(ctx, req)
 }
 
-// GetUSCorporates returns the available US Corporate bonds.
-func GetUSCorporates(req GetUSCorporatesRequest) ([]USCorporate, error) {
-	return DefaultClient.GetUSCorporates(req)
+// GetUSCorporates returns the available US Corporate bonds
+// with the default Alpaca client.
+func GetUSCorporates(ctx context.Context, req GetUSCorporatesRequest) ([]USCorporate, error) {
+	return DefaultClient.GetUSCorporates(ctx, req)
 }
 
 type GetUSTreasuriesRequest struct {
@@ -1304,7 +1306,7 @@ type GetUSTreasuriesRequest struct {
 }
 
 // GetUSTreasuries returns the available US Treasury securities.
-func (c *Client) GetUSTreasuries(req GetUSTreasuriesRequest) ([]USTreasury, error) {
+func (c *Client) GetUSTreasuries(ctx context.Context, req GetUSTreasuriesRequest) ([]USTreasury, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/%s/assets/fixed_income/us_treasuries", c.opts.BaseURL, apiVersion))
 	if err != nil {
 		return nil, err
@@ -1325,7 +1327,7 @@ func (c *Client) GetUSTreasuries(req GetUSTreasuriesRequest) ([]USTreasury, erro
 	}
 	u.RawQuery = q.Encode()
 
-	resp, err := c.get(u)
+	resp, err := c.get(ctx, u)
 	if err != nil {
 		return nil, err
 	}
@@ -1346,7 +1348,7 @@ type GetUSCorporatesRequest struct {
 }
 
 // GetUSCorporates returns the available US Corporate bonds.
-func (c *Client) GetUSCorporates(req GetUSCorporatesRequest) ([]USCorporate, error) {
+func (c *Client) GetUSCorporates(ctx context.Context, req GetUSCorporatesRequest) ([]USCorporate, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/%s/assets/fixed_income/us_corporates", c.opts.BaseURL, apiVersion))
 	if err != nil {
 		return nil, err
@@ -1367,7 +1369,7 @@ func (c *Client) GetUSCorporates(req GetUSCorporatesRequest) ([]USCorporate, err
 	}
 	u.RawQuery = q.Encode()
 
-	resp, err := c.get(u)
+	resp, err := c.get(ctx, u)
 	if err != nil {
 		return nil, err
 	}
