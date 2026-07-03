@@ -401,7 +401,7 @@ func (c *Client) setQueryBarRequest(q url.Values, symbols []string, req GetBarsR
 		Currency: req.Currency,
 		Sort:     req.Sort,
 	})
-	adjustment := Raw
+	adjustment := AdjustmentRaw
 	if req.Adjustment != "" {
 		adjustment = req.Adjustment
 	}
@@ -1535,6 +1535,8 @@ func (c *Client) GetNews(
 type GetCorporateActionsRequest struct {
 	// Symbols is the list of company symbols
 	Symbols []string
+	// Cusips is the list of company CUSIPs
+	Cusips []string
 	// Types is the list of corporate actions types. Available types:
 	//
 	// The following types are supported:
@@ -1551,11 +1553,16 @@ type GetCorporateActionsRequest struct {
 	//  - name_change
 	//  - worthless_removal
 	//  - rights_distribution
+	//  - partial_call
+	//  - reorganization
 	Types []string
 	// Start is the inclusive beginning of the interval
 	Start civil.Date
 	// End is the inclusive end of the interval
 	End civil.Date
+	// IDs is the list of corporate action IDs to fetch. When set, it is mutually
+	// exclusive with all other filters (Symbols, Cusips, Types, Start, End).
+	IDs []string
 	// TotalLimit is the limit of the total number of the returned trades.
 	// If missing, all trades between start end end will be returned.
 	TotalLimit int
@@ -1578,6 +1585,9 @@ func (c *Client) GetCorporateActions(
 	if len(req.Symbols) > 0 {
 		q.Set("symbols", strings.Join(req.Symbols, ","))
 	}
+	if len(req.Cusips) > 0 {
+		q.Set("cusips", strings.Join(req.Cusips, ","))
+	}
 	if !req.Start.IsZero() {
 		q.Set("start", req.Start.String())
 	}
@@ -1589,6 +1599,9 @@ func (c *Client) GetCorporateActions(
 	}
 	if len(req.Types) > 0 {
 		q.Set("types", strings.Join(req.Types, ","))
+	}
+	if len(req.IDs) > 0 {
+		q.Set("ids", strings.Join(req.IDs, ","))
 	}
 
 	cas := CorporateActions{}
@@ -1620,17 +1633,60 @@ func (c *Client) GetCorporateActions(
 		cas.NameChanges = append(cas.NameChanges, c.NameChanges...)
 		cas.WorthlessRemovals = append(cas.WorthlessRemovals, c.WorthlessRemovals...)
 		cas.RightsDistributions = append(cas.RightsDistributions, c.RightsDistributions...)
+		cas.PartialCalls = append(cas.PartialCalls, c.PartialCalls...)
+		cas.Reorganizations = append(cas.Reorganizations, c.Reorganizations...)
 		received += (len(c.ReverseSplits) + len(c.ForwardSplits) + len(c.UnitSplits) +
 			len(c.CashDividends) + len(c.StockDividends) +
 			len(c.CashMergers) + len(c.StockMergers) + len(c.StockAndCashMergers) +
 			len(c.Redemptions) + len(c.SpinOffs) + len(c.NameChanges) +
-			len(c.WorthlessRemovals) + len(c.RightsDistributions))
+			len(c.WorthlessRemovals) + len(c.RightsDistributions) +
+			len(c.PartialCalls) + len(c.Reorganizations))
 		if casResp.NextPageToken == nil {
 			break
 		}
 		q.Set("page_token", *casResp.NextPageToken)
 	}
 	return cas, nil
+}
+
+const fixedIncomePrefix = "v1beta1/fixed_income"
+
+// GetFixedIncomeLatestPrice returns the latest price for a given fixed income security identified by ISIN
+func (c *Client) GetFixedIncomeLatestPrice(isin string) (*FixedIncomePrice, error) {
+	resp, err := c.GetFixedIncomeLatestPrices([]string{isin})
+	if err != nil {
+		return nil, err
+	}
+	price, ok := resp[isin]
+	if !ok {
+		return nil, nil
+	}
+	return &price, nil
+}
+
+// GetFixedIncomeLatestPrices returns the latest prices for the given fixed income securities identified by ISINs
+func (c *Client) GetFixedIncomeLatestPrices(isins []string) (map[string]FixedIncomePrice, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/%s/latest/prices", c.opts.BaseURL, fixedIncomePrefix))
+	if err != nil {
+		return nil, err
+	}
+	q := u.Query()
+	if len(isins) > 0 {
+		q.Set("isins", strings.Join(isins, ","))
+	}
+	u.RawQuery = q.Encode()
+
+	resp, err := c.get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer closeResp(resp)
+
+	var latestPricesResp latestFixedIncomePricesResponse
+	if err = unmarshal(resp, &latestPricesResp); err != nil {
+		return nil, err
+	}
+	return latestPricesResp.Prices, nil
 }
 
 // GetTrades returns the trades for the given symbol.
@@ -1904,6 +1960,16 @@ func GetCorporateActions(
 	ctx context.Context, req GetCorporateActionsRequest,
 ) (CorporateActions, error) {
 	return DefaultClient.GetCorporateActions(ctx, req)
+}
+
+// GetFixedIncomeLatestPrice returns the latest price for a given fixed income security identified by ISIN
+func GetFixedIncomeLatestPrice(isin string) (*FixedIncomePrice, error) {
+	return DefaultClient.GetFixedIncomeLatestPrice(isin)
+}
+
+// GetFixedIncomeLatestPrices returns the latest prices for the given fixed income securities identified by ISINs
+func GetFixedIncomeLatestPrices(isins []string) (map[string]FixedIncomePrice, error) {
+	return DefaultClient.GetFixedIncomeLatestPrices(isins)
 }
 
 func (c *Client) get(

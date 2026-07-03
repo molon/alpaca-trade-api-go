@@ -20,7 +20,6 @@ import (
 
 // Get AAPL and MSFT trades from the tenth of a second of the 2021-08-09 market open
 func trades(ctx context.Context) {
-	marketdata.GetTrades(ctx, "AAPL", marketdata.GetTradesRequest{})
 	multiTrades, err := marketdata.GetMultiTrades(ctx, []string{"AAPL", "MSFT"}, marketdata.GetTradesRequest{
 		Start: time.Date(2021, 8, 9, 13, 30, 0, 0, time.UTC),
 		End:   time.Date(2021, 8, 9, 13, 30, 0, 10000000, time.UTC),

@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/civil"
@@ -26,6 +27,12 @@ const (
 	// endpoints and on the stream. For historical endpoints you can simply
 	// use sip and set the end parameter to 15 minutes ago, or leave it empty.
 	DelayedSIP Feed = "delayed_sip"
+	// BOATS includes the Blue Ocean ATS, which supports overnight trading in the US.
+	BOATS Feed = "boats"
+	// Overnight is the derived overnight US trading feed. It can only be used
+	// in the latest endpoints and on the stream. For historical endpoints you can
+	// use BOATS and set the end parameter to 15 minutes ago, or leave it empty.
+	Overnight Feed = "overnight"
 )
 
 // CryptoFeed defines the source feed of crypto data.
@@ -34,6 +41,9 @@ type CryptoFeed = string
 const (
 	// US is the crypto feed for the United States.
 	US     CryptoFeed = "us"
+	US1    CryptoFeed = "us-1"
+	US2    CryptoFeed = "us-2"
+	BS1    CryptoFeed = "bs-1"
 	GLOBAL CryptoFeed = "global"
 )
 
@@ -41,8 +51,8 @@ const (
 type OptionFeed = string
 
 const (
-	OPRA       Feed = "opra"
-	Indicative Feed = "indicative"
+	OPRA       OptionFeed = "opra"
+	Indicative OptionFeed = "indicative"
 )
 
 type OptionType = string
@@ -128,11 +138,44 @@ type Adjustment string
 
 // List of adjustments
 const (
-	Raw      Adjustment = "raw"
-	Split    Adjustment = "split"
+	// Raw applies no adjustments.
+	//
+	// Deprecated: Use AdjustmentRaw instead.
+	Raw Adjustment = "raw"
+	// Split adjusts the price and volume for forward and reverse stock splits.
+	//
+	// Deprecated: Use AdjustmentSplit instead.
+	Split Adjustment = "split"
+	// Dividend adjusts the price for cash dividends.
+	//
+	// Deprecated: Use AdjustmentDividend instead.
 	Dividend Adjustment = "dividend"
-	All      Adjustment = "all"
+	// All applies all above adjustments.
+	//
+	// Deprecated: Use AdjustmentAll instead.
+	All Adjustment = "all"
+
+	// AdjustmentRaw applies no adjustments.
+	AdjustmentRaw Adjustment = "raw"
+	// AdjustmentSplit adjusts the price and volume for forward and reverse stock splits.
+	AdjustmentSplit Adjustment = "split"
+	// AdjustmentDividend adjusts the price for cash dividends.
+	AdjustmentDividend Adjustment = "dividend"
+	// AdjustmentSpinOff adjusts the price for spin-offs.
+	AdjustmentSpinOff Adjustment = "spin-off"
+	// AdjustmentAll applies all above adjustments.
+	AdjustmentAll Adjustment = "all"
 )
+
+// CombineAdjustments can be used to combine multiple adjustments into one,
+// e.g. to adjust both for splits and spin-offs.
+func CombineAdjustments(adjustments ...Adjustment) Adjustment {
+	arr := make([]string, len(adjustments))
+	for i, adj := range adjustments {
+		arr[i] = string(adj)
+	}
+	return Adjustment(strings.Join(arr, ","))
+}
 
 // Bar is an aggregate of trades
 type Bar struct {
@@ -254,7 +297,10 @@ type News struct {
 }
 
 type ReverseSplit struct {
+	ID          string      `json:"id"`
 	Symbol      string      `json:"symbol"`
+	OldCusip    string      `json:"old_cusip"`
+	NewCusip    string      `json:"new_cusip"`
 	NewRate     float64     `json:"new_rate"`
 	OldRate     float64     `json:"old_rate"`
 	ProcessDate civil.Date  `json:"process_date"`
@@ -264,7 +310,9 @@ type ReverseSplit struct {
 }
 
 type ForwardSplit struct {
+	ID                    string      `json:"id"`
 	Symbol                string      `json:"symbol"`
+	Cusip                 string      `json:"cusip"`
 	NewRate               float64     `json:"new_rate"`
 	OldRate               float64     `json:"old_rate"`
 	ProcessDate           civil.Date  `json:"process_date"`
@@ -275,33 +323,51 @@ type ForwardSplit struct {
 }
 
 type UnitSplit struct {
+	ID              string      `json:"id"`
 	NewSymbol       string      `json:"new_symbol"`
+	NewCusip        string      `json:"new_cusip"`
 	NewRate         float64     `json:"new_rate"`
 	OldSymbol       string      `json:"old_symbol"`
+	OldCusip        string      `json:"old_cusip"`
 	OldRate         float64     `json:"old_rate"`
 	AlternateSymbol string      `json:"alternate_symbol"`
+	AlternateCusip  string      `json:"alternate_cusip"`
 	AlternateRate   float64     `json:"alternate_rate"`
 	ProcessDate     civil.Date  `json:"process_date"`
 	EffectiveDate   civil.Date  `json:"effective_date"`
 	PayableDate     *civil.Date `json:"payable_date,omitempty"`
 }
 
+// CashDividendSubType is the sub-type of a cash dividend.
+type CashDividendSubType = string
+
+const (
+	CashDividendSubTypeInterest        CashDividendSubType = "interest"
+	CashDividendSubTypeReturnOfCapital CashDividendSubType = "return_of_capital"
+)
+
 type CashDividend struct {
-	Symbol         string      `json:"symbol"`
-	Rate           float64     `json:"rate"`
-	Foreign        bool        `json:"foreign"`
-	Special        bool        `json:"special"`
-	ProcessDate    civil.Date  `json:"process_date"`
-	ExDate         civil.Date  `json:"ex_date"`
-	RecordDate     *civil.Date `json:"record_date,omitempty"`
-	PayableDate    *civil.Date `json:"payable_date,omitempty"`
-	DueBillOffDate *civil.Date `json:"due_bill_off_date,omitempty"`
-	DueBillOnDate  *civil.Date `json:"due_bill_on_date,omitempty"`
+	ID             string              `json:"id"`
+	Symbol         string              `json:"symbol"`
+	Cusip          string              `json:"cusip"`
+	Rate           float64             `json:"rate"`
+	Foreign        bool                `json:"foreign"`
+	Special        bool                `json:"special"`
+	SubType        CashDividendSubType `json:"sub_type,omitempty"`
+	ProcessDate    civil.Date          `json:"process_date"`
+	ExDate         civil.Date          `json:"ex_date"`
+	RecordDate     *civil.Date         `json:"record_date,omitempty"`
+	PayableDate    *civil.Date         `json:"payable_date,omitempty"`
+	DueBillOffDate *civil.Date         `json:"due_bill_off_date,omitempty"`
+	DueBillOnDate  *civil.Date         `json:"due_bill_on_date,omitempty"`
 }
 
 type CashMerger struct {
+	ID             string      `json:"id"`
 	AcquirerSymbol *string     `json:"acquirer_symbol,omitempty"`
+	AcquirerCusip  *string     `json:"acquirer_cusip,omitempty"`
 	AcquireeSymbol string      `json:"acquiree_symbol"`
+	AcquireeCusip  string      `json:"acquiree_cusip"`
 	Rate           float64     `json:"rate"`
 	ProcessDate    civil.Date  `json:"process_date"`
 	EffectiveDate  civil.Date  `json:"effective_date"`
@@ -309,9 +375,12 @@ type CashMerger struct {
 }
 
 type StockMerger struct {
+	ID             string      `json:"id"`
 	AcquirerSymbol string      `json:"acquirer_symbol"`
+	AcquirerCusip  string      `json:"acquirer_cusip"`
 	AcquirerRate   float64     `json:"acquirer_rate"`
 	AcquireeSymbol string      `json:"acquiree_symbol"`
+	AcquireeCusip  string      `json:"acquiree_cusip"`
 	AcquireeRate   float64     `json:"acquiree_rate"`
 	ProcessDate    civil.Date  `json:"process_date"`
 	EffectiveDate  civil.Date  `json:"effective_date"`
@@ -319,9 +388,12 @@ type StockMerger struct {
 }
 
 type StockAndCashMerger struct {
+	ID             string      `json:"id"`
 	AcquirerSymbol string      `json:"acquirer_symbol"`
+	AcquirerCusip  string      `json:"acquirer_cusip"`
 	AcquirerRate   float64     `json:"acquirer_rate"`
 	AcquireeSymbol string      `json:"acquiree_symbol"`
+	AcquireeCusip  string      `json:"acquiree_cusip"`
 	AcquireeRate   float64     `json:"acquiree_rate"`
 	CashRate       float64     `json:"cash_rate"`
 	ProcessDate    civil.Date  `json:"process_date"`
@@ -330,7 +402,9 @@ type StockAndCashMerger struct {
 }
 
 type StockDividend struct {
+	ID          string      `json:"id"`
 	Symbol      string      `json:"symbol"`
+	Cusip       string      `json:"cusip"`
 	Rate        float64     `json:"rate"`
 	ProcessDate civil.Date  `json:"process_date"`
 	ExDate      civil.Date  `json:"ex_date"`
@@ -339,16 +413,21 @@ type StockDividend struct {
 }
 
 type Redemption struct {
+	ID          string      `json:"id"`
 	Symbol      string      `json:"symbol"`
+	Cusip       string      `json:"cusip"`
 	Rate        float64     `json:"rate"`
 	PayableDate *civil.Date `json:"payable_date,omitempty"`
 	ProcessDate civil.Date  `json:"process_date"`
 }
 
 type SpinOff struct {
+	ID                    string      `json:"id"`
 	SourceSymbol          string      `json:"source_symbol"`
+	SourceCusip           string      `json:"source_cusip"`
 	SourceRate            float64     `json:"source_rate"`
 	NewSymbol             string      `json:"new_symbol"`
+	NewCusip              string      `json:"new_cusip"`
 	NewRate               float64     `json:"new_rate"`
 	ProcessDate           civil.Date  `json:"process_date"`
 	ExDate                civil.Date  `json:"ex_date"`
@@ -358,25 +437,74 @@ type SpinOff struct {
 }
 
 type NameChange struct {
+	ID          string     `json:"id"`
 	NewSymbol   string     `json:"new_symbol"`
+	NewCusip    string     `json:"new_cusip"`
 	OldSymbol   string     `json:"old_symbol"`
+	OldCusip    string     `json:"old_cusip"`
 	ProcessDate civil.Date `json:"process_date"`
 }
 
 type WorthlessRemoval struct {
+	ID          string     `json:"id"`
 	Symbol      string     `json:"symbol"`
+	Cusip       string     `json:"cusip"`
 	ProcessDate civil.Date `json:"process_date"`
 }
 
 type RightsDistribution struct {
+	ID             string      `json:"id"`
 	SourceSymbol   string      `json:"source_symbol"`
+	SourceCusip    string      `json:"source_cusip"`
 	NewSymbol      string      `json:"new_symbol"`
+	NewCusip       string      `json:"new_cusip"`
 	Rate           float64     `json:"rate"`
 	ProcessDate    civil.Date  `json:"process_date"`
 	ExDate         civil.Date  `json:"ex_date"`
 	PayableDate    civil.Date  `json:"payable_date,omitempty"`
 	RecordDate     *civil.Date `json:"record_date,omitempty"`
 	ExpirationDate *civil.Date `json:"expiration_date,omitempty"`
+}
+
+// PartialCallLotteryType is the type of lottery used for a partial call.
+type PartialCallLotteryType = string
+
+const (
+	PartialCallLotteryTypeOriginal     PartialCallLotteryType = "original"
+	PartialCallLotteryTypeSupplemental PartialCallLotteryType = "supplemental"
+)
+
+type PartialCall struct {
+	ID                     string                 `json:"id"`
+	Symbol                 string                 `json:"symbol"`
+	Cusip                  string                 `json:"cusip"`
+	Price                  float64                `json:"price"`
+	DividendRate           float64                `json:"dividend_rate"`
+	LotteryType            PartialCallLotteryType `json:"lottery_type,omitempty"`
+	ProcessDate            civil.Date             `json:"process_date"`
+	PayableDate            *civil.Date            `json:"payable_date,omitempty"`
+	RecordDate             *civil.Date            `json:"record_date,omitempty"`
+	LotteryDate            *civil.Date            `json:"lottery_date,omitempty"`
+	ResultsPublicationDate *civil.Date            `json:"results_publication_date,omitempty"`
+}
+
+// ReorganizationStockMovement is a single stock allocation leg in a reorganization.
+type ReorganizationStockMovement struct {
+	Symbol     string  `json:"symbol"`
+	Cusip      string  `json:"cusip"`
+	NewRate    float64 `json:"new_rate"`
+	SourceRate float64 `json:"source_rate"`
+}
+
+type Reorganization struct {
+	ID             string                        `json:"id"`
+	Symbol         string                        `json:"symbol"`
+	Cusip          string                        `json:"cusip"`
+	CashRate       float64                       `json:"cash_rate"`
+	ProcessDate    civil.Date                    `json:"process_date"`
+	EffectiveDate  civil.Date                    `json:"effective_date"`
+	PayableDate    *civil.Date                   `json:"payable_date,omitempty"`
+	StockMovements []ReorganizationStockMovement `json:"stock_movements,omitempty"`
 }
 
 // CorporateActions contains corporate actions grouped by type
@@ -394,6 +522,8 @@ type CorporateActions struct {
 	NameChanges         []NameChange         `json:"name_changes,omitempty"`
 	WorthlessRemovals   []WorthlessRemoval   `json:"worthless_removals,omitempty"`
 	RightsDistributions []RightsDistribution `json:"rights_distributions,omitempty"`
+	PartialCalls        []PartialCall        `json:"partial_calls,omitempty"`
+	Reorganizations     []Reorganization     `json:"reorganizations,omitempty"`
 }
 
 // OptionTrade is an option trade that happened on the market
@@ -537,4 +667,16 @@ type latestOptionQuotesResponse struct {
 type optionSnapshotsResponse struct {
 	NextPageToken *string                   `json:"next_page_token"`
 	Snapshots     map[string]OptionSnapshot `json:"snapshots"`
+}
+
+// FixedIncomePrice is the latest price for a fixed income security
+type FixedIncomePrice struct {
+	Timestamp       time.Time `json:"t"`
+	Price           float64   `json:"p"`
+	YieldToMaturity float64   `json:"ytm"`
+	YieldToWorst    float64   `json:"ytw"`
+}
+
+type latestFixedIncomePricesResponse struct {
+	Prices map[string]FixedIncomePrice `json:"prices"`
 }
